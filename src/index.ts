@@ -2,6 +2,7 @@ import express, { Request, Response } from 'express'
 import cors from 'cors'
 import { TAccountDB, TAccountDBPost, TUserDB, TUserDBPost } from './types'
 import { db } from './database/knex'
+import { User } from './models/User'
 
 const app = express()
 
@@ -39,12 +40,21 @@ app.get("/users", async (req: Request, res: Response) => {
         if (q) {
             const result: TUserDB[] = await db("users").where("name", "LIKE", `%${q}%`)
             usersDB = result
+
         } else {
             const result: TUserDB[] = await db("users")
             usersDB = result
         }
 
-        res.status(200).send(usersDB)
+        const user = usersDB.map((userDB) => new User(
+            userDB.id,
+            userDB.name,
+            userDB.email,
+            userDB.password,
+            userDB.created_at
+        ))
+
+        res.status(200).send(user)
     } catch (error) {
         console.log(error)
 
@@ -91,17 +101,36 @@ app.post("/users", async (req: Request, res: Response) => {
             throw new Error("'id' já existe")
         }
 
-        const newUser: TUserDBPost = {
+        // objto simples usando dados crus vindo do body
+        // const newUser: TUserDBPost = {
+        //     id,
+        //     name,
+        //     email,
+        //     password
+        // }
+
+        //instanciar os dados vindos do body
+        const newUser = new User(
             id,
             name,
             email,
-            password
+            password,
+            new Date().toISOString()
+        )
+        
+        // objeto simples para modelar as informações para o banco de dados
+        const newUserDB = {
+            id: newUser.getId(),
+            name:newUser.getName(),
+            email:newUser.getEmail(),
+            password:newUser.getPassword(),
+            created_at: newUser.getCreatedAt()
         }
 
-        await db("users").insert(newUser)
-        const [ userDB ]: TUserDB[] = await db("users").where({ id })
+        await db("users").insert(newUserDB)
+        // const [ userDB ]: TUserDB[] = await db("users").where({ id })
 
-        res.status(201).send(userDB)
+        res.status(201).send(newUser)
     } catch (error) {
         console.log(error)
 
@@ -246,3 +275,7 @@ app.put("/accounts/:id/balance", async (req: Request, res: Response) => {
         }
     }
 })
+
+const user3 = new User("i003", "Murilo", "murilo@gmail.com", "muri123@", "2023-01-30 10:00:00")
+console.log(user3)
+console.log(user3.getId())
